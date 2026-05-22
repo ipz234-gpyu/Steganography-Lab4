@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="uk">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Аудіостеганографія (WAV) | Cyber-Workspace</title>
+    <link rel="stylesheet" href="style.css">
+    <script defer src="stego-helpers.js"></script>
+    <script defer src="wav-processor.js"></script>
+    <script defer src="audio-stego-service.js"></script>
+    <script defer src="waveform-visualizer.js"></script>
+    <script defer src="app-ui.js"></script>
+    <script defer src="main.js"></script>
+</head>
+
+<body>
+    <div class="workspace-wrapper">
+        <nav class="sidebar">
+            <div class="sidebar-brand">
+                WAV <span>Стеганографія</span>
+            </div>
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <button id="nav-embed" class="nav-link active" onclick="switchView('embed')">
+                        <span>📥</span> Приховати повідомлення
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button id="nav-extract" class="nav-link" onclick="switchView('extract')">
+                        <span>📤</span> Вилучити повідомлення
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button id="nav-analysis" class="nav-link" onclick="switchView('analysis')">
+                        <span>📈</span> Аналіз хвиль (Графіки)
+                    </button>
+                </li>
+            </ul>
+        </nav>
+
+        <main class="main-content">
+
+            <div id="view-embed" class="deck-view active">
+                <div class="grid-layout">
+
+                    <div class="control-column">
+                        <div class="panel-card">
+                            <div class="panel-header">Конфігурація кодера (LSB)</div>
+
+                            <div class="file-upload-row">
+                                <div class="input-wrapper">
+                                    <label>Оригінальний аудіофайл (16-bit PCM WAV)</label>
+                                    <input type="text" id="embed-file-name" class="input-control" readonly
+                                        placeholder="Файл не вибрано...">
+                                </div>
+                                <input type="file" id="embed-file-input" accept=".wav" class="hidden"
+                                    onchange="AppUI.handleEmbedFileLoad(event)">
+                                <button class="action-btn btn-outline" style="width: auto; padding: 0.85rem 1.5rem;"
+                                    onclick="document.getElementById('embed-file-input').click()">Огляд...</button>
+                            </div>
+
+                            <div class="input-wrapper">
+                                <label>Секретне повідомлення</label>
+                                <textarea id="embed-secret-text" class="input-control"
+                                    placeholder="Введіть дані, які потрібно приховати..."></textarea>
+                            </div>
+
+                            <div class="input-wrapper"
+                                style="background: rgba(99, 102, 241, 0.05); padding: 1rem; border-radius: var(--radius-md); border: 1px solid rgba(99, 102, 241, 0.2);">
+                                <label style="color: var(--accent-indigo);">Додатковий захист (PRNG)</label>
+                                <p
+                                    style="font-size: 0.75rem; color: var(--text-dim); margin-top: -0.25rem; margin-bottom: 0.75rem;">
+                                    Якщо ввести пароль, біти будуть розкидані по файлу псевдовипадково, використовуючи
+                                    детермінований алгоритм генерації індексів.
+                                </p>
+                                <input type="text" id="embed-password" class="input-control"
+                                    placeholder="Опціональний пароль...">
+                            </div>
+
+                            <button class="action-btn btn-indigo" onclick="AppUI.executeEmbedding()">Вбудувати та
+                                зберегти...</button>
+                        </div>
+                    </div>
+
+                    <div class="log-column">
+                        <div class="panel-card">
+                            <div class="panel-header">Статус операції</div>
+                            <div id="embed-stats" class="terminal-log">Очікування конфігурації...</div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div id="view-extract" class="deck-view">
+                <div class="grid-layout">
+
+                    <div class="control-column">
+                        <div class="panel-card">
+                            <div class="panel-header">Конфігурація декодера</div>
+
+                            <div class="file-upload-row">
+                                <div class="input-wrapper">
+                                    <label>Стего-файл (WAV з прихованими даними)</label>
+                                    <input type="text" id="extract-file-name" class="input-control" readonly
+                                        placeholder="Файл не вибрано...">
+                                </div>
+                                <input type="file" id="extract-file-input" accept=".wav" class="hidden"
+                                    onchange="AppUI.handleExtractFileLoad(event)">
+                                <button class="action-btn btn-outline" style="width: auto; padding: 0.85rem 1.5rem;"
+                                    onclick="document.getElementById('extract-file-input').click()">Огляд...</button>
+                            </div>
+
+                            <div class="input-wrapper">
+                                <label>Пароль (залиште порожнім, якщо не використовувався)</label>
+                                <input type="text" id="extract-password" class="input-control"
+                                    placeholder="Секретний ключ PRNG...">
+                            </div>
+
+                            <button class="action-btn btn-mint" onclick="AppUI.executeExtraction()">Вилучити
+                                повідомлення</button>
+                        </div>
+                    </div>
+
+                    <div class="log-column">
+                        <div class="panel-card">
+                            <div class="panel-header">Знайдене повідомлення</div>
+                            <div class="input-wrapper">
+                                <textarea id="extract-terminal" class="input-control" readonly
+                                    style="min-height: 200px;"></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div id="view-analysis" class="deck-view">
+                <div class="grid-full">
+                    <div class="panel-card" style="padding-bottom: 1rem;">
+                        <div class="panel-header">Аналіз аудіо-структур</div>
+                        <p
+                            style="font-size: 0.85rem; color: var(--text-dim); margin-top: -1rem; margin-bottom: 1.5rem;">
+                            Для порівняння необхідно спочатку виконати вбудовування даних у вкладці «Приховати
+                            повідомлення».
+                        </p>
+
+                        <button class="action-btn btn-outline" style="max-width: 400px; margin: 0 auto 2rem auto;"
+                            onclick="AppUI.drawWaveforms()">Побудувати графіки для порівняння</button>
+
+                        <div class="plot-container">
+                            <div class="plot-header">
+                                <span class="plot-title" style="color: #3b82f6;">Оригінальний сигнал</span>
+                                <button id="btn-play-orig" class="btn-play"
+                                    onclick="AppUI.togglePlayOriginal()">▶</button>
+                            </div>
+                            <canvas id="canvas-orig" class="waveform"></canvas>
+                        </div>
+
+                        <div class="plot-container">
+                            <div class="plot-header">
+                                <span class="plot-title" style="color: #14b8a6;">Стего-сигнал</span>
+                                <button id="btn-play-stego" class="btn-play"
+                                    onclick="AppUI.togglePlayStego()">▶</button>
+                            </div>
+                            <canvas id="canvas-stego" class="waveform"></canvas>
+                        </div>
+
+                        <div class="plot-container" style="border-color: rgba(225, 29, 72, 0.3);">
+                            <div class="plot-header">
+                                <span class="plot-title" style="color: var(--accent-rose);">Різниця (Модифіковані
+                                    біти)</span>
+                            </div>
+                            <canvas id="canvas-diff" class="waveform"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+</body>
+
+</html>
